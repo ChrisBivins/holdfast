@@ -135,6 +135,12 @@ export default function App() {
     setStatus("Unit removed");
   }
 
+  async function removeBattle(id: string) {
+    if (!db) return;
+    await deleteDoc(doc(battlesCol(), id));
+    setStatus("Battle removed");
+  }
+
   async function uploadBanner(file: File) {
     if (!storage || !db) return;
     setStatus("Uploading map image…");
@@ -214,6 +220,9 @@ export default function App() {
                 <li key={battle.id}>
                   <strong>{battle.date} — {battle.winner || "No winner listed"}</strong>
                   <span className="muted">{battle.mission} · {battle.attacker} vs {battle.defender}</span>
+                  <div className="actions">
+                    <button className="danger" type="button" onClick={() => removeBattle(battle.id)}>Remove</button>
+                  </div>
                 </li>
               ))}
             </ul>
