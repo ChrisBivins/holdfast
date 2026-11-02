@@ -172,16 +172,24 @@ export default function App() {
       <div className="grid-layout">
         <section>
           <div className="board">
-            {territories.map((tile) => (
-              <button
-                key={tile.id}
-                className={tile.id === selectedId ? "tile selected" : "tile"}
-                onClick={() => setSelectedId(tile.id)}
-              >
-                <h3>{tile.name}</h3>
-                <p>{tile.owner || "Unclaimed"}</p>
-              </button>
-            ))}
+            {territories.map((tile) => {
+              const ownerKey = (tile.owner || "Unclaimed").toLowerCase();
+              const colorClass =
+                ownerKey.includes("pale") || ownerKey.includes("seraphim") ? "owner-pale" :
+                ownerKey.includes("word") || ownerKey.includes("bearer") ? "owner-word" :
+                "owner-unclaimed";
+
+              return (
+                <button
+                  key={tile.id}
+                  className={`tile ${colorClass} ${tile.id === selectedId ? "selected" : ""}`}
+                  onClick={() => setSelectedId(tile.id)}
+                >
+                  <h3>{tile.name}</h3>
+                  <p>{tile.owner || "Unclaimed"}</p>
+                </button>
+              );
+            })}
           </div>
 
           <div className="stack">

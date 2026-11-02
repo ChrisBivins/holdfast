@@ -48,3 +48,6 @@ button.danger { background: #3a1f1a; color: #f0c2b0; }
 @media (max-width: 900px) {
   .grid-layout, .row { grid-template-columns: 1fr; }
 }
+.tile.owner-pale { border-left: 4px solid #4a90e2; }
+.tile.owner-word { border-left: 4px solid #c45c26; }
+.tile.owner-unclaimed { border-left: 4px solid #5a5a5a; }
