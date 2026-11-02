@@ -28,6 +28,7 @@ export default function App() {
   const [battles, setBattles] = useState<Battle[]>([]);
   const [units, setUnits] = useState<RosterUnit[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [name, setName] = useState("");
   const [owner, setOwner] = useState("");
   const [note, setNote] = useState("");
   const [bannerUrl, setBannerUrl] = useState("");
@@ -95,6 +96,7 @@ export default function App() {
 
   useEffect(() => {
     if (!selected) return;
+    setName(selected.name);
     setOwner(selected.owner);
     setNote(selected.note);
   }, [selected]);
@@ -102,7 +104,7 @@ export default function App() {
   async function saveTile() {
     if (!db || !selected) return;
     setStatus("Saving tile…");
-    await updateDoc(doc(territoriesCol(), selected.id), { owner, note });
+    await updateDoc(doc(territoriesCol(), selected.id), { name, owner, note });
     setStatus("Tile saved");
   }
 
@@ -270,6 +272,8 @@ export default function App() {
             <h2>{selected ? selected.name : "Pick a territory"}</h2>
             {selected ? (
               <>
+                <label>Name</label>
+                <input value={name} onChange={(e) => setName(e.target.value)} />
                 <label>Owner</label>
                 <input value={owner} onChange={(e) => setOwner(e.target.value)} />
                 <label>Note</label>
