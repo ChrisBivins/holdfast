@@ -31,6 +31,8 @@ export default function App() {
   const [owner, setOwner] = useState("");
   const [note, setNote] = useState("");
   const [bannerUrl, setBannerUrl] = useState("");
+  const [campaignName, setCampaignName] = useState("Shrine World");
+  const [campaignSetup, setCampaignSetup] = useState("Pale Seraphim vs Word Bearers");
 
   const selected = useMemo(
     () => territories.find((t) => t.id === selectedId) ?? null,
@@ -43,6 +45,7 @@ export default function App() {
     let unsubTiles = () => {};
     let unsubBattles = () => {};
     let unsubUnits = () => {};
+    let unsubCampaign = () => {};
 
     async function boot() {
       const existing = await getDocs(territoriesCol());
@@ -57,6 +60,13 @@ export default function App() {
           ),
         );
       }
+
+      unsubCampaign = onSnapshot(campaignRef(), (snap) => {
+        const data = snap.data();
+        if (data?.bannerUrl) setBannerUrl(data.bannerUrl);
+        if (data?.name) setCampaignName(data.name);
+        if (data?.setup) setCampaignSetup(data.setup);
+      });
 
       unsubTiles = onSnapshot(territoriesCol(), (snap) => {
         const rows = snap.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<Territory, "id">) }));
@@ -79,6 +89,7 @@ export default function App() {
       unsubTiles();
       unsubBattles();
       unsubUnits();
+      unsubCampaign();
     };
   }, [ready]);
 
@@ -93,6 +104,13 @@ export default function App() {
     setStatus("Saving tile…");
     await updateDoc(doc(territoriesCol(), selected.id), { owner, note });
     setStatus("Tile saved");
+  }
+
+  async function saveCampaign() {
+    if (!db) return;
+    setStatus("Saving campaign…");
+    await setDoc(campaignRef(), { name: campaignName, setup: campaignSetup }, { merge: true });
+    setStatus("Campaign updated");
   }
 
   async function addBattle(event: FormEvent<HTMLFormElement>) {
@@ -157,8 +175,18 @@ export default function App() {
       <header className="top">
         <div>
           <div className="brand">HOLDFAST</div>
-          <h1>Shrine World</h1>
-          <p className="sub">Pale Seraphim vs Word Bearers</p>
+          <input
+            value={campaignName}
+            onChange={(e) => setCampaignName(e.target.value)}
+            onBlur={saveCampaign}
+            style={{ fontSize: 28, fontWeight: 600, background: "transparent", border: "none", width: "100%", color: "inherit" }}
+          />
+          <input
+            value={campaignSetup}
+            onChange={(e) => setCampaignSetup(e.target.value)}
+            onBlur={saveCampaign}
+            style={{ color: "var(--muted)", background: "transparent", border: "none", width: "100%", marginTop: 4 }}
+          />
         </div>
         <div className="status">{status}</div>
       </header>
@@ -300,7 +328,9 @@ export default function App() {
                 if (file) uploadBanner(file);
               }}
             />
-            {bannerUrl ? <p className="muted">Uploaded. URL stored on the campaign.</p> : null}
+            {bannerUrl && (
+              <img src={bannerUrl} alt="Campaign map" style={{ maxWidth: "100%", marginTop: 12, borderRadius: 8 }} />
+            )}
           </div>
         </aside>
       </div>
