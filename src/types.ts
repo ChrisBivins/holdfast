@@ -5,8 +5,8 @@ export type Territory = {
   note: string;
   col: number;
   row: number;
+  color?: string;
 };
-
 export type Battle = {
   id: string;
   date: string;

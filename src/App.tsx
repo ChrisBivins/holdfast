@@ -31,6 +31,7 @@ export default function App() {
   const [name, setName] = useState("");
   const [owner, setOwner] = useState("");
   const [note, setNote] = useState("");
+  const [color, setColor] = useState("#5a5a5a");
   const [bannerUrl, setBannerUrl] = useState("");
   const [campaignName, setCampaignName] = useState("Shrine World");
   const [campaignSetup, setCampaignSetup] = useState("Pale Seraphim vs Word Bearers");
@@ -99,12 +100,13 @@ export default function App() {
     setName(selected.name);
     setOwner(selected.owner);
     setNote(selected.note);
+    setColor(selected.color || "#5a5a5a");
   }, [selected]);
 
   async function saveTile() {
     if (!db || !selected) return;
     setStatus("Saving tile…");
-    await updateDoc(doc(territoriesCol(), selected.id), { name, owner, note });
+    await updateDoc(doc(territoriesCol(), selected.id), { name, owner, note, color });
     setStatus("Tile saved");
   }
 
@@ -202,24 +204,17 @@ export default function App() {
       <div className="grid-layout">
         <section>
           <div className="board">
-            {territories.map((tile) => {
-              const ownerKey = (tile.owner || "Unclaimed").toLowerCase();
-              const colorClass =
-                ownerKey.includes("pale") || ownerKey.includes("seraphim") ? "owner-pale" :
-                ownerKey.includes("word") || ownerKey.includes("bearer") ? "owner-word" :
-                "owner-unclaimed";
-
-              return (
-                <button
-                  key={tile.id}
-                  className={`tile ${colorClass} ${tile.id === selectedId ? "selected" : ""}`}
-                  onClick={() => setSelectedId(tile.id)}
-                >
-                  <h3>{tile.name}</h3>
-                  <p>{tile.owner || "Unclaimed"}</p>
-                </button>
-              );
-            })}
+            {territories.map((tile) => (
+              <button
+                key={tile.id}
+                className={`tile ${tile.id === selectedId ? "selected" : ""}`}
+                style={{ borderLeft: `4px solid ${tile.color || "#5a5a5a"}` }}
+                onClick={() => setSelectedId(tile.id)}
+              >
+                <h3>{tile.name}</h3>
+                <p>{tile.owner || "Unclaimed"}</p>
+              </button>
+            ))}
           </div>
 
           <div className="stack">
@@ -276,6 +271,8 @@ export default function App() {
                 <input value={name} onChange={(e) => setName(e.target.value)} />
                 <label>Owner</label>
                 <input value={owner} onChange={(e) => setOwner(e.target.value)} />
+                <label>Color</label>
+                <input type="color" value={color} onChange={(e) => setColor(e.target.value)} style={{ width: "100%", height: 36, padding: 2 }} />
                 <label>Note</label>
                 <textarea value={note} onChange={(e) => setNote(e.target.value)} />
                 <div className="actions">
