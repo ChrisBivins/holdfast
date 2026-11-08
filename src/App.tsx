@@ -11,7 +11,16 @@ import {
   updateDoc,
 } from "firebase/firestore";
 import { getDownloadURL, ref, uploadBytes } from "firebase/storage";
-import { CAMPAIGN_ID, db, firebaseReady, storage } from "./firebase";
+import {
+  GoogleAuthProvider,
+  createUserWithEmailAndPassword,
+  onAuthStateChanged,
+  signInWithEmailAndPassword,
+  signInWithPopup,
+  signOut,
+  type User,
+} from "firebase/auth";
+import { CAMPAIGN_ID, auth, db, firebaseReady, storage } from "./firebase";
 import { SEED_TERRITORIES } from "./seed";
 import type { Battle, RosterUnit, Territory } from "./types";
 import "./App.css";
@@ -23,7 +32,12 @@ const unitsCol = () => collection(db!, "campaigns", CAMPAIGN_ID, "units");
 
 export default function App() {
   const ready = firebaseReady();
-  const [status, setStatus] = useState(ready ? "Connecting to Firestore…" : "Firebase keys missing");
+  const [user, setUser] = useState<User | null>(null);
+  const [authLoading, setAuthLoading] = useState(true);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [authError, setAuthError] = useState("");
+  const [status, setStatus] = useState(ready ? "Connecting…" : "Firebase keys missing");
   const [territories, setTerritories] = useState<Territory[]>([]);
   const [battles, setBattles] = useState<Battle[]>([]);
   const [units, setUnits] = useState<RosterUnit[]>([]);
@@ -42,7 +56,19 @@ export default function App() {
   );
 
   useEffect(() => {
-    if (!ready || !db) return;
+    if (!auth) {
+      setAuthLoading(false);
+      return;
+    }
+    const unsub = onAuthStateChanged(auth, (u) => {
+      setUser(u);
+      setAuthLoading(false);
+    });
+    return unsub;
+  }, []);
+
+  useEffect(() => {
+    if (!ready || !db || !user) return;
 
     let unsubTiles = () => {};
     let unsubBattles = () => {};
@@ -93,7 +119,7 @@ export default function App() {
       unsubUnits();
       unsubCampaign();
     };
-  }, [ready]);
+  }, [ready, user]);
 
   useEffect(() => {
     if (!selected) return;
@@ -102,6 +128,40 @@ export default function App() {
     setNote(selected.note);
     setColor(selected.color || "#5a5a5a");
   }, [selected]);
+
+  async function handleEmailSignIn(event: FormEvent) {
+    event.preventDefault();
+    if (!auth) return;
+    setAuthError("");
+    try {
+      await signInWithEmailAndPassword(auth, email, password);
+    } catch (err: any) {
+      if (err.code === "auth/user-not-found") {
+        try {
+          await createUserWithEmailAndPassword(auth, email, password);
+        } catch (createErr: any) {
+          setAuthError(createErr.message || "Could not create account");
+        }
+      } else {
+        setAuthError(err.message || "Sign in failed");
+      }
+    }
+  }
+
+  async function handleGoogle() {
+    if (!auth) return;
+    setAuthError("");
+    try {
+      await signInWithPopup(auth, new GoogleAuthProvider());
+    } catch (err: any) {
+      setAuthError(err.message || "Google sign in failed");
+    }
+  }
+
+  async function handleSignOut() {
+    if (!auth) return;
+    await signOut(auth);
+  }
 
   async function saveTile() {
     if (!db || !selected) return;
@@ -174,6 +234,38 @@ export default function App() {
     setStatus("Map image saved");
   }
 
+  if (authLoading) {
+    return <div className="wrap"><p>Loading…</p></div>;
+  }
+
+  if (!user) {
+    return (
+      <div className="wrap">
+        <header className="top">
+          <div>
+            <div className="brand">HOLDFAST</div>
+            <h1>Sign in</h1>
+          </div>
+        </header>
+        <div className="panel" style={{ maxWidth: 400 }}>
+          <form onSubmit={handleEmailSignIn}>
+            <label>Email</label>
+            <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+            <label>Password</label>
+            <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
+            <div className="actions">
+              <button className="primary" type="submit">Sign in / Create account</button>
+            </div>
+          </form>
+          <div className="actions" style={{ marginTop: 12 }}>
+            <button className="ghost" type="button" onClick={handleGoogle}>Sign in with Google</button>
+          </div>
+          {authError && <p className="muted" style={{ color: "#f0c2b0", marginTop: 12 }}>{authError}</p>}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="wrap">
       <header className="top">
@@ -192,7 +284,11 @@ export default function App() {
             style={{ color: "var(--muted)", background: "transparent", border: "none", width: "100%", marginTop: 4 }}
           />
         </div>
-        <div className="status">{status}</div>
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <span className="muted">{user.email}</span>
+          <button className="ghost" type="button" onClick={handleSignOut}>Sign out</button>
+          <div className="status">{status}</div>
+        </div>
       </header>
 
       {!ready && (
