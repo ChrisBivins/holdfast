@@ -1,4 +1,4 @@
-import { type FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import {
   addDoc,
   collection,
@@ -48,6 +48,7 @@ export default function App() {
   const [battles, setBattles] = useState<Battle[]>([]);
   const [armies, setArmies] = useState<Army[]>([]);
   const [selectedArmyId, setSelectedArmyId] = useState<string | null>(null);
+  const [armyNameEdit, setArmyNameEdit] = useState("");
   const [units, setUnits] = useState<RosterUnit[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [name, setName] = useState("");
@@ -57,6 +58,11 @@ export default function App() {
   const [bannerUrl, setBannerUrl] = useState("");
   const [campaignName, setCampaignName] = useState("Shrine World");
   const [campaignSetup, setCampaignSetup] = useState("Pale Seraphim vs Word Bearers");
+  const [editingUnit, setEditingUnit] = useState<RosterUnit | null>(null);
+  const [editUnitName, setEditUnitName] = useState("");
+  const [editUnitXp, setEditUnitXp] = useState(0);
+  const [editUnitScars, setEditUnitScars] = useState("");
+  const [editUnitNotes, setEditUnitNotes] = useState("");
 
   const selected = useMemo(
     () => territories.find((t) => t.id === selectedId) ?? null,
@@ -154,6 +160,10 @@ export default function App() {
     setColor(selected.color || "#5a5a5a");
   }, [selected]);
 
+  useEffect(() => {
+    if (selectedArmy) setArmyNameEdit(selectedArmy.name);
+  }, [selectedArmy]);
+
   async function handleEmailSignIn(event: FormEvent) {
     event.preventDefault();
     if (!auth) return;
@@ -217,6 +227,13 @@ export default function App() {
     setStatus("Campaign updated");
   }
 
+  async function saveArmyName() {
+    if (!db || !selectedArmy || !campaignId) return;
+    setStatus("Saving army…");
+    await updateDoc(doc(armiesCol(), selectedArmy.id), { name: armyNameEdit });
+    setStatus("Army updated");
+  }
+
   async function addBattle(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!db || !campaignId) return;
@@ -262,6 +279,27 @@ export default function App() {
     });
     event.currentTarget.reset();
     setStatus("Unit added");
+  }
+
+  function startEditUnit(unit: RosterUnit) {
+    setEditingUnit(unit);
+    setEditUnitName(unit.name);
+    setEditUnitXp(unit.xp);
+    setEditUnitScars(unit.scars || "");
+    setEditUnitNotes(unit.notes || "");
+  }
+
+  async function saveUnitEdit() {
+    if (!db || !editingUnit || !campaignId) return;
+    setStatus("Saving unit…");
+    await updateDoc(doc(unitsCol(), editingUnit.id), {
+      name: editUnitName,
+      xp: editUnitXp,
+      scars: editUnitScars,
+      notes: editUnitNotes,
+    });
+    setEditingUnit(null);
+    setStatus("Unit updated");
   }
 
   async function removeUnit(id: string) {
@@ -503,6 +541,14 @@ export default function App() {
 
             {selectedArmy && (
               <>
+                <div style={{ marginTop: 16 }}>
+                  <label>Army name</label>
+                  <input value={armyNameEdit} onChange={(e) => setArmyNameEdit(e.target.value)} />
+                  <div className="actions">
+                    <button className="primary" type="button" onClick={saveArmyName}>Save army name</button>
+                  </div>
+                </div>
+
                 <h3 style={{ marginTop: 20 }}>{selectedArmy.name}</h3>
                 <form onSubmit={addUnit}>
                   <label>Unit</label>
@@ -529,11 +575,36 @@ export default function App() {
                       <strong>{unit.name} · {unit.xp} XP</strong>
                       <span className="muted">{unit.scars || "No scars yet"}</span>
                       <div className="actions">
+                        <button className="ghost" type="button" onClick={() => startEditUnit(unit)}>Edit</button>
                         <button className="danger" type="button" onClick={() => removeUnit(unit.id)}>Remove</button>
                       </div>
                     </li>
                   ))}
                 </ul>
+
+                {editingUnit && (
+                  <div className="panel" style={{ marginTop: 16 }}>
+                    <h3>Edit unit</h3>
+                    <label>Name</label>
+                    <input value={editUnitName} onChange={(e) => setEditUnitName(e.target.value)} />
+                    <div className="row">
+                      <div>
+                        <label>XP</label>
+                        <input type="number" value={editUnitXp} onChange={(e) => setEditUnitXp(Number(e.target.value))} />
+                      </div>
+                      <div>
+                        <label>Scars</label>
+                        <input value={editUnitScars} onChange={(e) => setEditUnitScars(e.target.value)} />
+                      </div>
+                    </div>
+                    <label>Notes</label>
+                    <input value={editUnitNotes} onChange={(e) => setEditUnitNotes(e.target.value)} />
+                    <div className="actions">
+                      <button className="primary" type="button" onClick={saveUnitEdit}>Save</button>
+                      <button className="ghost" type="button" onClick={() => setEditingUnit(null)}>Cancel</button>
+                    </div>
+                  </div>
+                )}
               </>
             )}
           </div>
