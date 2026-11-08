@@ -24,4 +24,5 @@ export type RosterUnit = {
   xp: number;
   scars: string;
   notes: string;
+  armyId?: string;
 };
