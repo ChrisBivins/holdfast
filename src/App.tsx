@@ -1,14 +1,17 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import {
   addDoc,
+  arrayUnion,
   collection,
   deleteDoc,
   doc,
   getDocs,
   onSnapshot,
+  query,
   serverTimestamp,
   setDoc,
   updateDoc,
+  where,
 } from "firebase/firestore";
 import { getDownloadURL, ref, uploadBytes } from "firebase/storage";
 import {
@@ -34,6 +37,12 @@ type Army = {
   name: string;
 };
 
+type CampaignSummary = {
+  id: string;
+  name: string;
+  setup: string;
+};
+
 export default function App() {
   const ready = firebaseReady();
   const [user, setUser] = useState<User | null>(null);
@@ -44,6 +53,7 @@ export default function App() {
   const [status, setStatus] = useState(ready ? "Connecting…" : "Firebase keys missing");
   const [campaignId, setCampaignId] = useState<string | null>(null);
   const [joinId, setJoinId] = useState("");
+  const [myCampaigns, setMyCampaigns] = useState<CampaignSummary[]>([]);
   const [territories, setTerritories] = useState<Territory[]>([]);
   const [battles, setBattles] = useState<Battle[]>([]);
   const [armies, setArmies] = useState<Army[]>([]);
@@ -93,6 +103,21 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    if (!db || !user) return;
+    const q = query(collection(db, "campaigns"), where("members", "array-contains", user.uid));
+    const unsub = onSnapshot(q, (snap) => {
+      setMyCampaigns(
+        snap.docs.map((d) => ({
+          id: d.id,
+          name: d.data().name || "Untitled",
+          setup: d.data().setup || "",
+        })),
+      );
+    });
+    return unsub;
+  }, [user]);
+
+  useEffect(() => {
     if (!ready || !db || !user || !campaignId) return;
 
     let unsubTiles = () => {};
@@ -108,12 +133,15 @@ export default function App() {
           name: "Shrine World",
           setup: "Pale Seraphim vs Word Bearers",
           createdBy: user!.uid,
+          members: [user!.uid],
         });
         await Promise.all(
           SEED_TERRITORIES.map((tile, index) =>
             setDoc(doc(territoriesCol(), `t${index + 1}`), tile),
           ),
         );
+      } else {
+        await updateDoc(campaignRef(), { members: arrayUnion(user!.uid) });
       }
 
       unsubCampaign = onSnapshot(campaignRef(), (snap) => {
@@ -392,6 +420,27 @@ export default function App() {
               <button className="ghost" type="submit">Join</button>
             </div>
           </form>
+
+          {myCampaigns.length > 0 && (
+            <div style={{ marginTop: 24 }}>
+              <h3>Your campaigns</h3>
+              <ul className="list">
+                {myCampaigns.map((c) => (
+                  <li key={c.id}>
+                    <button
+                      className="ghost"
+                      type="button"
+                      onClick={() => setCampaignId(c.id)}
+                      style={{ width: "100%", textAlign: "left" }}
+                    >
+                      <strong>{c.name}</strong>
+                      <span className="muted" style={{ display: "block" }}>{c.id} · {c.setup}</span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
         </div>
       </div>
     );
