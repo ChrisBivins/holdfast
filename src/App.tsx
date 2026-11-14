@@ -1,6 +1,6 @@
 import { type FormEvent, useEffect, useMemo, useState } from "react";
 import {
- addDoc,
+  addDoc,
   arrayUnion,
   collection,
   deleteDoc,
@@ -43,6 +43,8 @@ type CampaignSummary = {
   setup: string;
 };
 
+type Tab = "map" | "battles" | "roster" | "image";
+
 export default function App() {
   const ready = firebaseReady();
   const [user, setUser] = useState<User | null>(null);
@@ -54,6 +56,7 @@ export default function App() {
   const [campaignId, setCampaignId] = useState<string | null>(null);
   const [joinId, setJoinId] = useState("");
   const [myCampaigns, setMyCampaigns] = useState<CampaignSummary[]>([]);
+  const [tab, setTab] = useState<Tab>("map");
   const [territories, setTerritories] = useState<Territory[]>([]);
   const [battles, setBattles] = useState<Battle[]>([]);
   const [armies, setArmies] = useState<Army[]>([]);
@@ -228,17 +231,29 @@ export default function App() {
     if (!auth) return;
     await signOut(auth);
     setCampaignId(null);
+    setTab("map");
   }
 
   function handleCreateCampaign() {
     const id = generateCampaignId();
+    setTab("map");
     setCampaignId(id);
   }
 
   function handleJoinCampaign(event: FormEvent) {
     event.preventDefault();
     const id = joinId.trim();
-    if (id) setCampaignId(id);
+    if (!id) return;
+    setTab("map");
+    setCampaignId(id);
+  }
+
+  function leaveCampaign() {
+    setCampaignId(null);
+    setTab("map");
+    setSelectedId(null);
+    setSelectedArmyId(null);
+    setEditingUnit(null);
   }
 
   async function saveTile() {
@@ -430,7 +445,10 @@ export default function App() {
                     <button
                       className="ghost"
                       type="button"
-                      onClick={() => setCampaignId(c.id)}
+                      onClick={() => {
+                        setTab("map");
+                        setCampaignId(c.id);
+                      }}
                       style={{ width: "100%", textAlign: "left" }}
                     >
                       <strong>{c.name}</strong>
@@ -464,9 +482,9 @@ export default function App() {
             style={{ color: "var(--muted)", background: "transparent", border: "none", width: "100%", marginTop: 4 }}
           />
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", justifyContent: "flex-end" }}>
           <span className="muted">ID: {campaignId}</span>
-          <button className="ghost" type="button" onClick={() => setCampaignId(null)}>Switch campaign</button>
+          <button className="ghost" type="button" onClick={leaveCampaign}>Switch campaign</button>
           <span className="muted">{user.email}</span>
           <button className="ghost" type="button" onClick={handleSignOut}>Sign out</button>
           <div className="status">{status}</div>
@@ -479,201 +497,215 @@ export default function App() {
         </div>
       )}
 
-      <div className="grid-layout">
-        <section>
-          <div className="board">
-            {territories.map((tile) => (
-              <button
-                key={tile.id}
-                className={`tile ${tile.id === selectedId ? "selected" : ""}`}
-                style={{ borderLeft: `4px solid ${tile.color || "#5a5a5a"}` }}
-                onClick={() => setSelectedId(tile.id)}
-              >
-                <h3>{tile.name}</h3>
-                <p>{tile.owner || "Unclaimed"}</p>
-              </button>
-            ))}
-          </div>
+      <nav className="tabs">
+        <button type="button" className={tab === "map" ? "active" : ""} onClick={() => setTab("map")}>Map</button>
+        <button type="button" className={tab === "battles" ? "active" : ""} onClick={() => setTab("battles")}>Battles</button>
+        <button type="button" className={tab === "roster" ? "active" : ""} onClick={() => setTab("roster")}>Roster</button>
+        <button type="button" className={tab === "image" ? "active" : ""} onClick={() => setTab("image")}>Map image</button>
+      </nav>
 
-          <div className="stack">
-            <h2>Battles</h2>
-            <form onSubmit={addBattle}>
-              <div className="row">
-                <div>
-                  <label>Date</label>
-                  <input name="date" type="date" required />
-                </div>
-                <div>
-                  <label>Mission</label>
-                  <input name="mission" placeholder="Secure the Reliquary" />
-                </div>
-              </div>
-              <div className="row">
-                <div>
-                  <label>Attacker</label>
-                  <input name="attacker" placeholder="Word Bearers" />
-                </div>
-                <div>
-                  <label>Defender</label>
-                  <input name="defender" placeholder="Pale Seraphim" />
-                </div>
-              </div>
-              <label>Winner</label>
-              <input name="winner" />
-              <label>Notes</label>
-              <textarea name="notes" placeholder="Two or three sentences." />
-              <div className="actions">
-                <button className="primary" type="submit">Log battle</button>
-              </div>
-            </form>
-            <ul className="list">
-              {battles.map((battle) => (
-                <li key={battle.id}>
-                  <strong>{battle.date} — {battle.winner || "No winner listed"}</strong>
-                  <span className="muted">{battle.mission} · {battle.attacker} vs {battle.defender}</span>
-                  <div className="actions">
-                    <button className="danger" type="button" onClick={() => removeBattle(battle.id)}>Remove</button>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          </div>
-        </section>
-
-        <aside>
-          <div className="panel">
-            <h2>{selected ? selected.name : "Pick a territory"}</h2>
-            {selected ? (
-              <>
-                <label>Name</label>
-                <input value={name} onChange={(e) => setName(e.target.value)} />
-                <label>Owner</label>
-                <input value={owner} onChange={(e) => setOwner(e.target.value)} />
-                <label>Color</label>
-                <input type="color" value={color} onChange={(e) => setColor(e.target.value)} style={{ width: "100%", height: 36, padding: 2 }} />
-                <label>Note</label>
-                <textarea value={note} onChange={(e) => setNote(e.target.value)} />
-                <div className="actions">
-                  <button className="primary" type="button" onClick={saveTile}>Save tile</button>
-                </div>
-              </>
-            ) : (
-              <p className="muted">Click a tile to change who holds it.</p>
-            )}
-          </div>
-
-          <div className="stack">
-            <h2>Roster</h2>
-            <form onSubmit={addArmy}>
-              <label>New army</label>
-              <input name="armyName" placeholder="Pale Seraphim" required />
-              <div className="actions">
-                <button className="primary" type="submit">Add army</button>
-              </div>
-            </form>
-
-            {armies.length > 0 && (
-              <div style={{ marginTop: 16 }}>
-                <label>Select army</label>
-                <select
-                  value={selectedArmyId || ""}
-                  onChange={(e) => setSelectedArmyId(e.target.value || null)}
-                  style={{ width: "100%" }}
+      {tab === "map" && (
+        <div className="grid-layout">
+          <section>
+            <div className="board">
+              {territories.map((tile) => (
+                <button
+                  key={tile.id}
+                  className={`tile ${tile.id === selectedId ? "selected" : ""}`}
+                  style={{ borderLeft: `4px solid ${tile.color || "#5a5a5a"}` }}
+                  onClick={() => setSelectedId(tile.id)}
                 >
-                  <option value="">— pick an army —</option>
-                  {armies.map((army) => (
-                    <option key={army.id} value={army.id}>{army.name}</option>
-                  ))}
-                </select>
-              </div>
-            )}
-
-            {selectedArmy && (
-              <>
-                <div style={{ marginTop: 16 }}>
-                  <label>Army name</label>
-                  <input value={armyNameEdit} onChange={(e) => setArmyNameEdit(e.target.value)} />
+                  <h3>{tile.name}</h3>
+                  <p>{tile.owner || "Unclaimed"}</p>
+                </button>
+              ))}
+            </div>
+          </section>
+          <aside>
+            <div className="panel">
+              <h2>{selected ? selected.name : "Pick a territory"}</h2>
+              {selected ? (
+                <>
+                  <label>Name</label>
+                  <input value={name} onChange={(e) => setName(e.target.value)} />
+                  <label>Owner</label>
+                  <input value={owner} onChange={(e) => setOwner(e.target.value)} />
+                  <label>Color</label>
+                  <input type="color" value={color} onChange={(e) => setColor(e.target.value)} style={{ width: "100%", height: 36, padding: 2 }} />
+                  <label>Note</label>
+                  <textarea value={note} onChange={(e) => setNote(e.target.value)} />
                   <div className="actions">
-                    <button className="primary" type="button" onClick={saveArmyName}>Save army name</button>
+                    <button className="primary" type="button" onClick={saveTile}>Save tile</button>
+                  </div>
+                </>
+              ) : (
+                <p className="muted">Click a tile to change who holds it.</p>
+              )}
+            </div>
+          </aside>
+        </div>
+      )}
+
+      {tab === "battles" && (
+        <div className="stack solo">
+          <h2>Battles</h2>
+          <form onSubmit={addBattle}>
+            <div className="row">
+              <div>
+                <label>Date</label>
+                <input name="date" type="date" required />
+              </div>
+              <div>
+                <label>Mission</label>
+                <input name="mission" placeholder="Secure the Reliquary" />
+              </div>
+            </div>
+            <div className="row">
+              <div>
+                <label>Attacker</label>
+                <input name="attacker" placeholder="Word Bearers" />
+              </div>
+              <div>
+                <label>Defender</label>
+                <input name="defender" placeholder="Pale Seraphim" />
+              </div>
+            </div>
+            <label>Winner</label>
+            <input name="winner" />
+            <label>Notes</label>
+            <textarea name="notes" placeholder="Two or three sentences." />
+            <div className="actions">
+              <button className="primary" type="submit">Log battle</button>
+            </div>
+          </form>
+          <ul className="list">
+            {battles.map((battle) => (
+              <li key={battle.id}>
+                <strong>{battle.date} — {battle.winner || "No winner listed"}</strong>
+                <span className="muted">{battle.mission} · {battle.attacker} vs {battle.defender}</span>
+                <div className="actions">
+                  <button className="danger" type="button" onClick={() => removeBattle(battle.id)}>Remove</button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {tab === "roster" && (
+        <div className="stack solo">
+          <h2>Roster</h2>
+          <form onSubmit={addArmy}>
+            <label>New army</label>
+            <input name="armyName" placeholder="Pale Seraphim" required />
+            <div className="actions">
+              <button className="primary" type="submit">Add army</button>
+            </div>
+          </form>
+
+          {armies.length > 0 && (
+            <div style={{ marginTop: 16 }}>
+              <label>Select army</label>
+              <select
+                value={selectedArmyId || ""}
+                onChange={(e) => setSelectedArmyId(e.target.value || null)}
+                style={{ width: "100%" }}
+              >
+                <option value="">— pick an army —</option>
+                {armies.map((army) => (
+                  <option key={army.id} value={army.id}>{army.name}</option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {selectedArmy && (
+            <>
+              <div style={{ marginTop: 16 }}>
+                <label>Army name</label>
+                <input value={armyNameEdit} onChange={(e) => setArmyNameEdit(e.target.value)} />
+                <div className="actions">
+                  <button className="primary" type="button" onClick={saveArmyName}>Save army name</button>
+                </div>
+              </div>
+
+              <h3 style={{ marginTop: 20 }}>{selectedArmy.name}</h3>
+              <form onSubmit={addUnit}>
+                <label>Unit</label>
+                <input name="name" required placeholder="Assault squad" />
+                <div className="row">
+                  <div>
+                    <label>XP</label>
+                    <input name="xp" type="number" min="0" defaultValue={0} />
+                  </div>
+                  <div>
+                    <label>Scars</label>
+                    <input name="scars" placeholder="Lost a rhino" />
                   </div>
                 </div>
+                <label>Notes</label>
+                <input name="notes" />
+                <div className="actions">
+                  <button className="primary" type="submit">Add unit</button>
+                </div>
+              </form>
+              <ul className="list">
+                {unitsForArmy.map((unit) => (
+                  <li key={unit.id}>
+                    <strong>{unit.name} · {unit.xp} XP</strong>
+                    <span className="muted">{unit.scars || "No scars yet"}</span>
+                    <div className="actions">
+                      <button className="ghost" type="button" onClick={() => startEditUnit(unit)}>Edit</button>
+                      <button className="danger" type="button" onClick={() => removeUnit(unit.id)}>Remove</button>
+                    </div>
+                  </li>
+                ))}
+              </ul>
 
-                <h3 style={{ marginTop: 20 }}>{selectedArmy.name}</h3>
-                <form onSubmit={addUnit}>
-                  <label>Unit</label>
-                  <input name="name" required placeholder="Assault squad" />
+              {editingUnit && (
+                <div className="panel" style={{ marginTop: 16 }}>
+                  <h3>Edit unit</h3>
+                  <label>Name</label>
+                  <input value={editUnitName} onChange={(e) => setEditUnitName(e.target.value)} />
                   <div className="row">
                     <div>
                       <label>XP</label>
-                      <input name="xp" type="number" min="0" defaultValue={0} />
+                      <input type="number" value={editUnitXp} onChange={(e) => setEditUnitXp(Number(e.target.value))} />
                     </div>
                     <div>
                       <label>Scars</label>
-                      <input name="scars" placeholder="Lost a rhino" />
+                      <input value={editUnitScars} onChange={(e) => setEditUnitScars(e.target.value)} />
                     </div>
                   </div>
                   <label>Notes</label>
-                  <input name="notes" />
+                  <input value={editUnitNotes} onChange={(e) => setEditUnitNotes(e.target.value)} />
                   <div className="actions">
-                    <button className="primary" type="submit">Add unit</button>
+                    <button className="primary" type="button" onClick={saveUnitEdit}>Save</button>
+                    <button className="ghost" type="button" onClick={() => setEditingUnit(null)}>Cancel</button>
                   </div>
-                </form>
-                <ul className="list">
-                  {unitsForArmy.map((unit) => (
-                    <li key={unit.id}>
-                      <strong>{unit.name} · {unit.xp} XP</strong>
-                      <span className="muted">{unit.scars || "No scars yet"}</span>
-                      <div className="actions">
-                        <button className="ghost" type="button" onClick={() => startEditUnit(unit)}>Edit</button>
-                        <button className="danger" type="button" onClick={() => removeUnit(unit.id)}>Remove</button>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      )}
 
-                {editingUnit && (
-                  <div className="panel" style={{ marginTop: 16 }}>
-                    <h3>Edit unit</h3>
-                    <label>Name</label>
-                    <input value={editUnitName} onChange={(e) => setEditUnitName(e.target.value)} />
-                    <div className="row">
-                      <div>
-                        <label>XP</label>
-                        <input type="number" value={editUnitXp} onChange={(e) => setEditUnitXp(Number(e.target.value))} />
-                      </div>
-                      <div>
-                        <label>Scars</label>
-                        <input value={editUnitScars} onChange={(e) => setEditUnitScars(e.target.value)} />
-                      </div>
-                    </div>
-                    <label>Notes</label>
-                    <input value={editUnitNotes} onChange={(e) => setEditUnitNotes(e.target.value)} />
-                    <div className="actions">
-                      <button className="primary" type="button" onClick={saveUnitEdit}>Save</button>
-                      <button className="ghost" type="button" onClick={() => setEditingUnit(null)}>Cancel</button>
-                    </div>
-                  </div>
-                )}
-              </>
-            )}
-          </div>
-
-          <div className="stack">
-            <h2>Map image</h2>
-            <input
-              type="file"
-              accept="image/*"
-              onChange={(e) => {
-                const file = e.target.files?.[0];
-                if (file) uploadBanner(file);
-              }}
-            />
-            {bannerUrl && (
-              <img src={bannerUrl} alt="Campaign map" style={{ maxWidth: "100%", marginTop: 12, borderRadius: 8 }} />
-            )}
-          </div>
-        </aside>
-      </div>
+      {tab === "image" && (
+        <div className="stack solo">
+          <h2>Map image</h2>
+          <input
+            type="file"
+            accept="image/*"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) uploadBanner(file);
+            }}
+          />
+          {bannerUrl && (
+            <img src={bannerUrl} alt="Campaign map" style={{ maxWidth: "100%", marginTop: 12, borderRadius: 8 }} />
+          )}
+        </div>
+      )}
     </div>
   );
 }

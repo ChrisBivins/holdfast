@@ -51,3 +51,24 @@ button.danger { background: #3a1f1a; color: #f0c2b0; }
 .tile.owner-pale { border-left: 4px solid #4a90e2; }
 .tile.owner-word { border-left: 4px solid #c45c26; }
 .tile.owner-unclaimed { border-left: 4px solid #5a5a5a; }
+.tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+.tabs button {
+  background: var(--card);
+  border: 1px solid var(--line);
+  color: inherit;
+  border-radius: 8px;
+  padding: 8px 14px;
+  cursor: pointer;
+}
+.tabs button.active {
+  background: var(--gold);
+  color: #1a1408;
+  border-color: var(--gold);
+  font-weight: 700;
+}
+.stack.solo { margin-top: 0; }
