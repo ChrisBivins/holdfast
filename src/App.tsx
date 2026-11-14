@@ -1,19 +1,6 @@
 import { type FormEvent, useEffect, useMemo, useState } from "react";
-import {
-  addDoc,
-  arrayUnion,
-  collection,
-  deleteDoc,
-  doc,
-  getDocs,
-  onSnapshot,
-  query,
-  serverTimestamp,
-  setDoc,
-  updateDoc,
-  where,
-} from "firebase/firestore";
-import { getDownloadURL, ref, uploadBytes } from "firebase/storage";
+import { addDoc, arrayUnion, collection, deleteDoc, deleteField, doc, getDocs, onSnapshot, query, serverTimestamp, setDoc, updateDoc, where } from "firebase/firestore";
+import { deleteObject, getDownloadURL, ref, uploadBytes } from "firebase/storage";
 import {
   GoogleAuthProvider,
   createUserWithEmailAndPassword,
@@ -69,6 +56,7 @@ export default function App() {
   const [note, setNote] = useState("");
   const [color, setColor] = useState("#5a5a5a");
   const [bannerUrl, setBannerUrl] = useState("");
+  const [bannerPath, setBannerPath] = useState("");
   const [campaignName, setCampaignName] = useState("Shrine World");
   const [campaignSetup, setCampaignSetup] = useState("Pale Seraphim vs Word Bearers");
   const [editingUnit, setEditingUnit] = useState<RosterUnit | null>(null);
@@ -150,6 +138,9 @@ export default function App() {
       unsubCampaign = onSnapshot(campaignRef(), (snap) => {
         const data = snap.data();
         if (data?.bannerUrl) setBannerUrl(data.bannerUrl);
+        else setBannerUrl("");
+        if (data?.bannerPath) setBannerPath(data.bannerPath);
+        else setBannerPath("");
         if (data?.name) setCampaignName(data.name);
         if (data?.setup) setCampaignSetup(data.setup);
       });
@@ -360,12 +351,38 @@ export default function App() {
   async function uploadBanner(file: File) {
     if (!storage || !db || !campaignId) return;
     setStatus("Uploading map image…");
-    const fileRef = ref(storage, `campaigns/${campaignId}/${file.name}`);
-    await uploadBytes(fileRef, file);
-    const url = await getDownloadURL(fileRef);
-    await setDoc(campaignRef(), { bannerUrl: url }, { merge: true });
-    setBannerUrl(url);
-    setStatus("Map image saved");
+    try {
+      const path = `campaigns/${campaignId}/${Date.now()}-${file.name}`;
+      const fileRef = ref(storage, path);
+      await uploadBytes(fileRef, file);
+      const url = await getDownloadURL(fileRef);
+      await setDoc(campaignRef(), { bannerUrl: url, bannerPath: path }, { merge: true });
+      setBannerUrl(url);
+      setBannerPath(path);
+      setStatus("Map image saved");
+    } catch (err: any) {
+      setStatus(err?.message || "Could not upload image. Check Firebase Storage rules.");
+    }
+  }
+
+  async function removeBanner() {
+    if (!db || !campaignId) return;
+    setStatus("Removing map image…");
+    try {
+      if (storage && bannerPath) {
+        try {
+          await deleteObject(ref(storage, bannerPath));
+        } catch {
+          // The file may already be gone. Still clear it off the campaign.
+        }
+      }
+      await setDoc(campaignRef(), { bannerUrl: deleteField(), bannerPath: deleteField() }, { merge: true });
+      setBannerUrl("");
+      setBannerPath("");
+      setStatus("Map image removed");
+    } catch (err: any) {
+      setStatus(err?.message || "Could not remove image");
+    }
   }
 
   const unitsForArmy = units.filter((u) => (u as any).armyId === selectedArmyId);
@@ -698,11 +715,19 @@ export default function App() {
             accept="image/*"
             onChange={(e) => {
               const file = e.target.files?.[0];
+              e.currentTarget.value = "";
               if (file) uploadBanner(file);
             }}
           />
-          {bannerUrl && (
-            <img src={bannerUrl} alt="Campaign map" style={{ maxWidth: "100%", marginTop: 12, borderRadius: 8 }} />
+          {bannerUrl ? (
+            <>
+              <img src={bannerUrl} alt="Campaign map" style={{ maxWidth: "100%", marginTop: 12, borderRadius: 8 }} />
+              <div className="actions">
+                <button className="danger" type="button" onClick={removeBanner}>Remove image</button>
+              </div>
+            </>
+          ) : (
+            <p className="muted">No map image yet.</p>
           )}
         </div>
       )}
