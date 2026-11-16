@@ -55,7 +55,7 @@ export default function App() {
   const [note, setNote] = useState("");
   const [color, setColor] = useState("#5a5a5a");
   const [bannerUrl, setBannerUrl] = useState("");
-  const [bannerPath, setBannerPath] = useState("");
+  const [, setBannerPath] = useState("");
   const [campaignName, setCampaignName] = useState("Shrine World");
   const [campaignSetup, setCampaignSetup] = useState("Pale Seraphim vs Word Bearers");
   const [editingUnit, setEditingUnit] = useState<RosterUnit | null>(null);
