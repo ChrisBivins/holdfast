@@ -64,6 +64,13 @@ export default function App() {
   const [editUnitXp, setEditUnitXp] = useState(0);
   const [editUnitScars, setEditUnitScars] = useState("");
   const [editUnitNotes, setEditUnitNotes] = useState("");
+  const [editingBattle, setEditingBattle] = useState<Battle | null>(null);
+  const [editBattleDate, setEditBattleDate] = useState("");
+  const [editBattleAttacker, setEditBattleAttacker] = useState("");
+  const [editBattleDefender, setEditBattleDefender] = useState("");
+  const [editBattleWinner, setEditBattleWinner] = useState("");
+  const [editBattleMission, setEditBattleMission] = useState("");
+  const [editBattleNotes, setEditBattleNotes] = useState("");
 
   const selected = useMemo(
     () => territories.find((t) => t.id === selectedId) ?? null,
@@ -245,6 +252,9 @@ export default function App() {
     setSelectedId(null);
     setSelectedArmyId(null);
     setEditingUnit(null);
+    setEditingBattle(null);
+    setBannerUrl("");
+    setBannerPath("");
   }
 
   async function saveTile() {
@@ -345,7 +355,78 @@ export default function App() {
   async function removeBattle(id: string) {
     if (!db || !campaignId) return;
     await deleteDoc(doc(battlesCol(), id));
+    if (editingBattle?.id === id) setEditingBattle(null);
     setStatus("Battle removed");
+  }
+
+  function startEditBattle(battle: Battle) {
+    setEditingBattle(battle);
+    setEditBattleDate(battle.date || "");
+    setEditBattleAttacker(battle.attacker || "");
+    setEditBattleDefender(battle.defender || "");
+    setEditBattleWinner(battle.winner || "");
+    setEditBattleMission(battle.mission || "");
+    setEditBattleNotes(battle.notes || "");
+  }
+
+  async function saveBattleEdit() {
+    if (!db || !editingBattle || !campaignId) return;
+    setStatus("Saving battle…");
+    await updateDoc(doc(battlesCol(), editingBattle.id), {
+      date: editBattleDate,
+      attacker: editBattleAttacker,
+      defender: editBattleDefender,
+      winner: editBattleWinner,
+      mission: editBattleMission,
+      notes: editBattleNotes,
+    });
+    setEditingBattle(null);
+    setStatus("Battle updated");
+  }
+
+  async function removeArmy(id: string) {
+    if (!db || !campaignId) return;
+    const army = armies.find((a) => a.id === id);
+    if (!confirm(`Delete ${army?.name || "this army"} and its units?`)) return;
+    setStatus("Deleting army…");
+    const owned = units.filter((u) => (u as { armyId?: string }).armyId === id);
+    await Promise.all(owned.map((u) => deleteDoc(doc(unitsCol(), u.id))));
+    await deleteDoc(doc(armiesCol(), id));
+    if (selectedArmyId === id) {
+      setSelectedArmyId(null);
+      setEditingUnit(null);
+    }
+    setStatus("Army deleted");
+  }
+
+  async function deleteCampaign() {
+    if (!db || !campaignId) return;
+    if (!confirm("Delete this campaign and everything in it? This can't be undone.")) return;
+    setStatus("Deleting campaign…");
+    const id = campaignId;
+    for (const name of ["territories", "battles", "armies", "units"]) {
+      const snap = await getDocs(collection(db, "campaigns", id, name));
+      await Promise.all(snap.docs.map((d) => deleteDoc(d.ref)));
+    }
+    if (storage && bannerPath) {
+      try {
+        await deleteObject(ref(storage, bannerPath));
+      } catch {
+        // File may already be gone.
+      }
+    }
+    await deleteDoc(doc(db, "campaigns", id));
+    leaveCampaign();
+  }
+
+  async function copyCampaignId() {
+    if (!campaignId) return;
+    try {
+      await navigator.clipboard.writeText(campaignId);
+      setStatus("Campaign ID copied");
+    } catch {
+      setStatus("Could not copy ID");
+    }
   }
 
   async function uploadBanner(file: File) {
@@ -501,6 +582,8 @@ export default function App() {
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", justifyContent: "flex-end" }}>
           <span className="muted">ID: {campaignId}</span>
+          <button className="ghost" type="button" onClick={copyCampaignId}>Copy ID</button>
+          <button className="danger" type="button" onClick={deleteCampaign}>Delete campaign</button>
           <button className="ghost" type="button" onClick={leaveCampaign}>Switch campaign</button>
           <span className="muted">{user.email}</span>
           <button className="ghost" type="button" onClick={handleSignOut}>Sign out</button>
@@ -601,11 +684,45 @@ export default function App() {
                 <strong>{battle.date} — {battle.winner || "No winner listed"}</strong>
                 <span className="muted">{battle.mission} · {battle.attacker} vs {battle.defender}</span>
                 <div className="actions">
+                  <button className="ghost" type="button" onClick={() => startEditBattle(battle)}>Edit</button>
                   <button className="danger" type="button" onClick={() => removeBattle(battle.id)}>Remove</button>
                 </div>
               </li>
             ))}
           </ul>
+          {editingBattle && (
+            <div className="panel" style={{ marginTop: 16 }}>
+              <h3>Edit battle</h3>
+              <div className="row">
+                <div>
+                  <label>Date</label>
+                  <input type="date" value={editBattleDate} onChange={(e) => setEditBattleDate(e.target.value)} />
+                </div>
+                <div>
+                  <label>Mission</label>
+                  <input value={editBattleMission} onChange={(e) => setEditBattleMission(e.target.value)} />
+                </div>
+              </div>
+              <div className="row">
+                <div>
+                  <label>Attacker</label>
+                  <input value={editBattleAttacker} onChange={(e) => setEditBattleAttacker(e.target.value)} />
+                </div>
+                <div>
+                  <label>Defender</label>
+                  <input value={editBattleDefender} onChange={(e) => setEditBattleDefender(e.target.value)} />
+                </div>
+              </div>
+              <label>Winner</label>
+              <input value={editBattleWinner} onChange={(e) => setEditBattleWinner(e.target.value)} />
+              <label>Notes</label>
+              <textarea value={editBattleNotes} onChange={(e) => setEditBattleNotes(e.target.value)} />
+              <div className="actions">
+                <button className="primary" type="button" onClick={saveBattleEdit}>Save</button>
+                <button className="ghost" type="button" onClick={() => setEditingBattle(null)}>Cancel</button>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -643,6 +760,7 @@ export default function App() {
                 <input value={armyNameEdit} onChange={(e) => setArmyNameEdit(e.target.value)} />
                 <div className="actions">
                   <button className="primary" type="button" onClick={saveArmyName}>Save army name</button>
+                  <button className="danger" type="button" onClick={() => removeArmy(selectedArmy.id)}>Delete army</button>
                 </div>
               </div>
 
