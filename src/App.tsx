@@ -1,6 +1,5 @@
 import { type FormEvent, useEffect, useMemo, useState } from "react";
 import { addDoc, arrayUnion, collection, deleteDoc, deleteField, doc, getDocs, onSnapshot, query, serverTimestamp, setDoc, updateDoc, where } from "firebase/firestore";
-import { deleteObject, getDownloadURL, ref, uploadBytes } from "firebase/storage";
 import {
   GoogleAuthProvider,
   createUserWithEmailAndPassword,
@@ -10,7 +9,7 @@ import {
   signOut,
   type User,
 } from "firebase/auth";
-import { auth, db, firebaseReady, storage } from "./firebase";
+import { auth, db, firebaseReady } from "./firebase";
 import { SEED_TERRITORIES } from "./seed";
 import type { Battle, RosterUnit, Territory } from "./types";
 import "./App.css";
@@ -408,13 +407,6 @@ export default function App() {
       const snap = await getDocs(collection(db, "campaigns", id, name));
       await Promise.all(snap.docs.map((d) => deleteDoc(d.ref)));
     }
-    if (storage && bannerPath) {
-      try {
-        await deleteObject(ref(storage, bannerPath));
-      } catch {
-        // File may already be gone.
-      }
-    }
     await deleteDoc(doc(db, "campaigns", id));
     leaveCampaign();
   }
@@ -430,19 +422,24 @@ export default function App() {
   }
 
   async function uploadBanner(file: File) {
-    if (!storage || !db || !campaignId) return;
-    setStatus("Uploading map image…");
+    if (!db || !campaignId) return;
+    if (file.size > 700000) {
+      setStatus("Image is too big. Use one under 700 KB.");
+      return;
+    }
+    setStatus("Saving map image…");
     try {
-      const path = `campaigns/${campaignId}/${Date.now()}-${file.name}`;
-      const fileRef = ref(storage, path);
-      await uploadBytes(fileRef, file);
-      const url = await getDownloadURL(fileRef);
-      await setDoc(campaignRef(), { bannerUrl: url, bannerPath: path }, { merge: true });
-      setBannerUrl(url);
-      setBannerPath(path);
+      const dataUrl = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result));
+        reader.onerror = () => reject(reader.error);
+        reader.readAsDataURL(file);
+      });
+      await setDoc(campaignRef(), { bannerUrl: dataUrl }, { merge: true });
+      setBannerUrl(dataUrl);
       setStatus("Map image saved");
     } catch (err: any) {
-      setStatus(err?.message || "Could not upload image. Check Firebase Storage rules.");
+      setStatus(err?.message || "Could not save image");
     }
   }
 
@@ -450,13 +447,6 @@ export default function App() {
     if (!db || !campaignId) return;
     setStatus("Removing map image…");
     try {
-      if (storage && bannerPath) {
-        try {
-          await deleteObject(ref(storage, bannerPath));
-        } catch {
-          // The file may already be gone. Still clear it off the campaign.
-        }
-      }
       await setDoc(campaignRef(), { bannerUrl: deleteField(), bannerPath: deleteField() }, { merge: true });
       setBannerUrl("");
       setBannerPath("");
