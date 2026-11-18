@@ -17,3 +17,8 @@ body {
   color: var(--ink);
 }
 button, input, textarea, select { font: inherit; color: inherit; }
+
+.brand, h1, h2, h3, .campaign-title {
+  font-family: Cinzel, Palatino, "Times New Roman", serif;
+  letter-spacing: 0.06em;
+}

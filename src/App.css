@@ -51,6 +51,7 @@ button.danger { background: #3a1f1a; color: #f0c2b0; }
 .tile.owner-pale { border-left: 4px solid #4a90e2; }
 .tile.owner-word { border-left: 4px solid #c45c26; }
 .tile.owner-unclaimed { border-left: 4px solid #5a5a5a; }
+
 .tabs {
   display: flex;
   gap: 8px;
@@ -64,6 +65,8 @@ button.danger { background: #3a1f1a; color: #f0c2b0; }
   border-radius: 8px;
   padding: 8px 14px;
   cursor: pointer;
+  font-family: Cinzel, Palatino, "Times New Roman", serif;
+  letter-spacing: 0.06em;
 }
 .tabs button.active {
   background: var(--gold);
@@ -72,3 +75,17 @@ button.danger { background: #3a1f1a; color: #f0c2b0; }
   font-weight: 700;
 }
 .stack.solo { margin-top: 0; }
+
+.panel, .stack, .tile {
+  box-shadow: inset 0 0 0 1px rgba(201, 162, 39, 0.18);
+}
+.campaign-title {
+  font-family: Cinzel, Palatino, "Times New Roman", serif;
+  letter-spacing: 0.06em;
+  font-size: 28px;
+  font-weight: 700;
+  background: transparent;
+  border: none;
+  width: 100%;
+  color: inherit;
+}

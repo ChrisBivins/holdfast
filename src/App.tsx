@@ -558,10 +558,10 @@ export default function App() {
         <div>
           <div className="brand">HOLDFAST</div>
           <input
+            className="campaign-title"
             value={campaignName}
             onChange={(e) => setCampaignName(e.target.value)}
             onBlur={saveCampaign}
-            style={{ fontSize: 28, fontWeight: 600, background: "transparent", border: "none", width: "100%", color: "inherit" }}
           />
           <input
             value={campaignSetup}
@@ -829,7 +829,7 @@ export default function App() {
           />
           {bannerUrl ? (
             <>
-              <img src={bannerUrl} alt="Campaign map" style={{ maxWidth: "100%", marginTop: 12, borderRadius: 8 }} />
+              <img src={bannerUrl} alt="Campaign map" style={{ maxWidth: "100%", marginTop: 12, borderRadius: 8, border: "1px solid #c9a227", padding: 6, background: "#10141c" }} />
               <div className="actions">
                 <button className="danger" type="button" onClick={removeBanner}>Remove image</button>
               </div>
