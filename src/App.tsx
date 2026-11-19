@@ -595,7 +595,15 @@ export default function App() {
       </nav>
 
       {tab === "map" && (
-        <div className="grid-layout">
+        <>
+          {bannerUrl && (
+            <img
+              src={bannerUrl}
+              alt="Campaign map"
+              style={{ width: "100%", maxHeight: 420, objectFit: "contain", marginBottom: 16, borderRadius: 8, border: "1px solid #c9a227", padding: 6, background: "#10141c" }}
+            />
+          )}
+          <div className="grid-layout">
           <section>
             <div className="board">
               {territories.map((tile) => (
@@ -633,7 +641,8 @@ export default function App() {
               )}
             </div>
           </aside>
-        </div>
+          </div>
+        </>
       )}
 
       {tab === "battles" && (
