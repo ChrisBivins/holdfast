@@ -57,7 +57,7 @@ export default function App() {
   const [bannerUrl, setBannerUrl] = useState("");
   const [, setBannerPath] = useState("");
   const [campaignName, setCampaignName] = useState("Shrine World");
-  const [campaignSetup, setCampaignSetup] = useState("Pale Seraphim vs Word Bearers");
+  const [campaignSetup, setCampaignSetup] = useState("Army 1 vs Army 2");
   const [editingUnit, setEditingUnit] = useState<RosterUnit | null>(null);
   const [editUnitName, setEditUnitName] = useState("");
   const [editUnitXp, setEditUnitXp] = useState(0);
@@ -70,6 +70,7 @@ export default function App() {
   const [editBattleWinner, setEditBattleWinner] = useState("");
   const [editBattleMission, setEditBattleMission] = useState("");
   const [editBattleNotes, setEditBattleNotes] = useState("");
+  const [newTileName, setNewTileName] = useState("");
 
   const selected = useMemo(
     () => territories.find((t) => t.id === selectedId) ?? null,
@@ -128,7 +129,7 @@ export default function App() {
       if (existing.empty) {
         await setDoc(campaignRef(), {
           name: "Shrine World",
-          setup: "Pale Seraphim vs Word Bearers",
+          setup: "Army 1 vs Army 2",
           createdBy: user!.uid,
           members: [user!.uid],
         });
@@ -261,6 +262,35 @@ export default function App() {
     setStatus("Saving tile…");
     await updateDoc(doc(territoriesCol(), selected.id), { name, owner, note, color });
     setStatus("Tile saved");
+  }
+
+  async function addTerritory(event: FormEvent) {
+    event.preventDefault();
+    if (!db || !campaignId) return;
+    const tileName = newTileName.trim();
+    if (!tileName) return;
+    const index = territories.length;
+    setStatus("Adding territory…");
+    const ref = await addDoc(territoriesCol(), {
+      name: tileName,
+      owner: "Unclaimed",
+      note: "",
+      color: "#5a5a5a",
+      col: index % 4,
+      row: Math.floor(index / 4),
+    });
+    setNewTileName("");
+    setSelectedId(ref.id);
+    setStatus("Territory added");
+  }
+
+  async function removeTerritory() {
+    if (!db || !selected || !campaignId) return;
+    if (!confirm(`Remove ${selected.name}?`)) return;
+    setStatus("Removing territory…");
+    await deleteDoc(doc(territoriesCol(), selected.id));
+    setSelectedId(null);
+    setStatus("Territory removed");
   }
 
   async function saveCampaign() {
@@ -634,11 +664,24 @@ export default function App() {
                   <textarea value={note} onChange={(e) => setNote(e.target.value)} />
                   <div className="actions">
                     <button className="primary" type="button" onClick={saveTile}>Save tile</button>
+                    <button className="danger" type="button" onClick={removeTerritory}>Remove territory</button>
                   </div>
                 </>
               ) : (
                 <p className="muted">Click a tile to change who holds it.</p>
               )}
+              <form onSubmit={addTerritory} style={{ marginTop: 16 }}>
+                <label>New territory</label>
+                <input
+                  value={newTileName}
+                  onChange={(e) => setNewTileName(e.target.value)}
+                  placeholder="Shrine Gate"
+                  required
+                />
+                <div className="actions">
+                  <button className="primary" type="submit">Add territory</button>
+                </div>
+              </form>
             </div>
           </aside>
           </div>
@@ -662,11 +705,11 @@ export default function App() {
             <div className="row">
               <div>
                 <label>Attacker</label>
-                <input name="attacker" placeholder="Word Bearers" />
+                <input name="attacker" placeholder="Army 2" />
               </div>
               <div>
                 <label>Defender</label>
-                <input name="defender" placeholder="Pale Seraphim" />
+                <input name="defender" placeholder="Army 1" />
               </div>
             </div>
             <label>Winner</label>
@@ -730,7 +773,7 @@ export default function App() {
           <h2>Roster</h2>
           <form onSubmit={addArmy}>
             <label>New army</label>
-            <input name="armyName" placeholder="Pale Seraphim" required />
+            <input name="armyName" placeholder="Army 1" required />
             <div className="actions">
               <button className="primary" type="submit">Add army</button>
             </div>
